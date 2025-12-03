@@ -2,24 +2,33 @@ const sharp = require("sharp");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed." });
+    return res.status(405).json({ error: "Only POST method allowed" });
   }
 
-  const targetKb = parseInt(req.query.targetKb || req.body.targetKb);
-  if (!targetKb) return res.status(400).send("Missing targetKb");
+  const boundary = req.headers["content-type"].split("boundary=")[1];
 
-  // Read file data
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const buffer = Buffer.concat(chunks);
+  // Parse multipart form-data manually
+  const buffers = [];
+  for await (const chunk of req) buffers.push(chunk);
+  const data = Buffer.concat(buffers);
+
+  const parts = data.toString().split(boundary);
+
+  const filePart = parts.find((p) => p.includes("filename"));
+  const targetPart = parts.find((p) => p.includes(`name="targetKb"`));
+
+  const targetKb = parseInt(targetPart.split("\r\n\r\n")[1], 10);
+  const fileStart = filePart.indexOf("\r\n\r\n") + 4;
+  const fileEnd = filePart.lastIndexOf("\r\n");
+  const fileBuffer = Buffer.from(filePart.slice(fileStart, fileEnd), "binary");
 
   const targetBytes = targetKb * 1024;
 
   let quality = 90;
-  let compressed = buffer;
+  let compressed = fileBuffer;
 
   while (quality >= 30) {
-    compressed = await sharp(buffer)
+    compressed = await sharp(fileBuffer)
       .jpeg({ quality, mozjpeg: true })
       .toBuffer();
 
@@ -28,5 +37,5 @@ module.exports = async (req, res) => {
   }
 
   res.setHeader("Content-Type", "image/jpeg");
-  res.send(compressed);
+  res.status(200).send(compressed);
 };
