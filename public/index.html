@@ -89,13 +89,14 @@
         statusEl.textContent = "Compressing...";
 
         try {
-          const res = await fetch(
-            `/api/compress?targetKb=${targetKbInput.value}`,
-            {
-              method: "POST",
-              body: fileInput.files[0],
-            }
-          );
+          const formData = new FormData();
+          formData.append("image", fileInput.files[0]);
+          formData.append("targetKb", targetKbInput.value);
+
+          const res = await fetch("/api/compress", {
+            method: "POST",
+            body: formData,
+          });
 
           if (!res.ok) {
             const text = await res.text();
@@ -110,7 +111,6 @@
             Math.round(blob.size / 1024) +
             " KB (download should start).";
 
-          // Trigger download
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
