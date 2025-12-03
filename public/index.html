@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simple Image Compressor</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        max-width: 400px;
+        margin: 40px auto;
+        padding: 16px;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      label {
+        display: block;
+        margin-top: 12px;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      input[type="file"],
+      input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 16px;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      #status {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>Image Size Reducer</h2>
+      <form id="compressForm">
+        <label for="image">Select image</label>
+        <input type="file" id="image" name="image" accept="image/*" required />
+
+        <label for="targetKb">Target size (KB)</label>
+        <input
+          type="number"
+          id="targetKb"
+          name="targetKb"
+          min="1"
+          placeholder="e.g. 100"
+          required
+        />
+
+        <button type="submit">Compress</button>
+      </form>
+
+      <p id="status"></p>
+    </div>
+
+    <script>
+      const form = document.getElementById("compressForm");
+      const statusEl = document.getElementById("status");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const fileInput = document.getElementById("image");
+        const targetKbInput = document.getElementById("targetKb");
+
+        if (!fileInput.files[0]) {
+          statusEl.textContent = "Please choose an image.";
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", fileInput.files[0]);
+        formData.append("targetKb", targetKbInput.value);
+
+        statusEl.textContent = "Compressing...";
+
+        try {
+          const res = await fetch("/compress", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            statusEl.textContent = "Error: " + text;
+            return;
+          }
+
+          const blob = await res.blob();
+
+          statusEl.textContent =
+            "Done! Output size: " +
+            Math.round(blob.size / 1024) +
+            " KB (download should start).";
+
+          // Trigger download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "compressed.jpg";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "Unexpected error.";
+        }
+      });
+    </script>
+  </body>
+</html>
